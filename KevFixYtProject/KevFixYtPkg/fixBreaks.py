@@ -9,6 +9,7 @@ import re
     
 def replace_br_in_csv(input_path, output_path) -> str:
     rowCommentCounts = []
+    commentIndex = 9 # Excel column J
     with open(input_path, 'r', newline='\n', errors='backslashreplace' ) as ytFile:
         print(ytFile.name)
         with open(output_path, 'w') as fixedFile:
@@ -19,15 +20,18 @@ def replace_br_in_csv(input_path, output_path) -> str:
                 if 0 == i:
                     continue
                 line = line[:-1]
-                fixedYT = line.replace(matchIt," ").replace("<br>", " ").replace("&#39","'")
+                fixedYT = line.replace(matchIt," ").replace("<br>", " ").replace("</br>", " ").replace("&#39","'")
                 fixedYT = re.sub(r'(\\x[0-9a-fA-F])','?', fixedYT)
                 parts = fixedYT.split(",")
-                if 10 < len(parts):
-                    parts[9] = ",".join(parts[9:])
-                commentCount = str(len(parts[9]))
+                if commentIndex + 1 < len(parts):
+                    parts[commentIndex] = ",".join(parts[commentIndex:])
+                comment = parts[commentIndex]
+                commentWords = re.findall(r'([a-zA-Z]+)', comment)
+                commentWordsCount = str(len(commentWords))
+                commentCount = str(len(comment))
                 fileParts = ytFile.name.split(os.sep)
-                comment = '\t'.join([fileParts[-1], parts[9], commentCount])
-                rowCommentCounts.append(comment) 
+                commentRow = '\t'.join([fileParts[-1], comment, commentCount, commentWordsCount])
+                rowCommentCounts.append(commentRow) 
                 trimParts = parts[:10]
                 trimParts.append(commentCount)
                 tabIt = '\t'.join(trimParts) + '\n'
@@ -46,16 +50,16 @@ if not os.path.exists(output_folder):
     os.makedirs(output_folder)
 
 # Process each CSV file in the source folder
-counts = []
+commentLines = []
 for filename in os.listdir(source_folder):
     if filename.endswith('.csv'):
         input_path = os.path.join(source_folder, filename)
         output_path = os.path.join(output_folder, filename.replace(".csv",".tsv"))
-        counts += replace_br_in_csv(input_path, output_path)
+        commentLines += replace_br_in_csv(input_path, output_path)
 with open(countsFile, 'w') as countDetails:
     commentId = 0
-    for commentCount in counts:
+    for commentLine in commentLines:
         commentId += 1
-        commentLine = '\t'.join([str(commentId), commentCount])
+        commentLine = '\t'.join([str(commentId), commentLine])
         countDetails.writelines(f"{commentLine}\n")
 print("Finished Fixing Files")
